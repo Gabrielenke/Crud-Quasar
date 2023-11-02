@@ -1,49 +1,99 @@
 <template>
-  <q-page class="row items-center justify-evenly">
-    <example-component
-      title="Example component"
-      active
-      :todos="todos"
-      :meta="meta"
-    ></example-component>
+  <q-page class="" padding>
+    <q-table title="treats" :rows="posts" :columns="columns" row-key="name">
+      <template v-slot:body-cell-actions="props">
+        <q-td :props="props">
+          <q-btn
+            icon="delete"
+            @click="handleDeletePost(props.row.id)"
+            color="negative"
+            dense
+          />
+        </q-td>
+      </template>
+    </q-table>
   </q-page>
 </template>
 
-<script lang="ts">
-import { Todo, Meta } from 'components/models';
-import ExampleComponent from 'components/ExampleComponent.vue';
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import usePosts from '../services/posts';
+import { QTableProps } from 'quasar';
+import { useQuasar } from 'quasar';
 
-export default defineComponent({
-  name: 'IndexPage',
-  components: { ExampleComponent },
-  setup () {
-    const todos = ref<Todo[]>([
-      {
-        id: 1,
-        content: 'ct1'
-      },
-      {
-        id: 2,
-        content: 'ct2'
-      },
-      {
-        id: 3,
-        content: 'ct3'
-      },
-      {
-        id: 4,
-        content: 'ct4'
-      },
-      {
-        id: 5,
-        content: 'ct5'
-      }
-    ]);
-    const meta = ref<Meta>({
-      totalCount: 1200
-    });
-    return { todos, meta };
-  }
+const posts = ref([]);
+const { list, remove } = usePosts();
+
+const columns: QTableProps['columns'] = [
+  { name: 'id', label: 'Id', field: 'id', sortable: true, align: 'left' },
+  {
+    name: 'title',
+    label: 'Title',
+    field: 'title',
+    sortable: true,
+    align: 'left',
+  },
+  {
+    name: 'author',
+    label: 'Author',
+    field: 'author',
+    sortable: true,
+    align: 'left',
+  },
+  {
+    name: 'actions',
+    label: 'Actions',
+    field: 'actions',
+    align: 'right',
+  },
+];
+
+const $q = useQuasar();
+
+onMounted(() => {
+  getPosts();
 });
+
+const getPosts = async () => {
+  try {
+    const data = await list();
+    posts.value = data;
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+const handleDeletePost = async (id: number) => {
+  try {
+    await remove(id);
+    $q.dialog({
+      title: 'confirm',
+      message: 'would you like to delete this post?',
+      cancel: true,
+      persistent: true,
+    })
+      .onOk(async () => {
+        await remove(id);
+        $q.notify({
+          color: 'positive',
+          message: 'Post deleted successfully',
+        });
+        await getPosts();
+      })
+      .onCancel(() => {
+        $q.notify({
+          color: 'negative',
+          message: 'Post not deleted',
+        });
+      });
+
+    await getPosts();
+  } catch (err) {
+    $q.notify({
+      color: 'negative',
+      message: 'Error deleting post',
+    });
+    console.log(err);
+  }
+};
 </script>
